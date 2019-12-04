@@ -3,3 +3,7 @@
 yarn.lock
 /.idea
 /~$Libro1.xlsx
+!/package-lock.json
+package-lock.json
+~.*
+~$Libro2.xlsx
