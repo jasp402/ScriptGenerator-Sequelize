@@ -1,0 +1,1 @@
+let xlsx = require('node-xlsx').default;
