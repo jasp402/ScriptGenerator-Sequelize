@@ -10,24 +10,24 @@ let schemas   = Sheet.map((value) => {
     return {
         model     : value.name,
         attributes: header,
-        values    : value.data[0]
+        values    : value.data
     };
 });
+let seeder    = [];
 generator     = schemas.map((value) => {
     const getType = (attr) => {
         let change = {
             regx: '',
             type: ''
         };
-
         if (attr.indexOf('(Int)') > -1) {
             change.regx = new RegExp(/ \(Int\)/g);
             change.type = ':number';
-        } else if (attr.indexOf('(Str)' > -1)) {
+        }
+        else if (attr.indexOf('(Str)' > -1)) {
             change.regx = new RegExp(/ \(Str\)/g);
             change.type = ':string'
         }
-
         const {regx, type} = change;
         return `${attr.replace(regx, type)}`;
     };
@@ -37,7 +37,7 @@ generator     = schemas.map((value) => {
 });
 
 // --- build script
-let {name, action, env, pathModel, pathMigration, pathConfig} = settings;
+let {name, action, env, pathModel, pathMigration, pathConfig, pathSeeders} = settings;
 
 let fileName = `install.db.${name}.js`;
 let prefix   = 'const { exec } = require(\'child_process\');';
@@ -45,9 +45,11 @@ let db       = `exec('npx sequelize-cli ${pathConfig} ${action('db')}');`;
 let models   = `exec('npx sequelize-cli ${action('model')} ${pathModel}  ${pathMigration} ${pathConfig} `;
 let migrate  = `exec('npx sequelize-cli ${pathConfig} ${env('dev')} ${pathMigration} ${action('migrate')}');`;
 let seeders  = `exec('npx sequelize-cli ${pathConfig} ${env('dev')}  ${action('seed')}');`;
+let seederFile = Sheet.map(value =>`sequelize seed:create ${pathSeeders} --name ${value.name} \n`).join("");
 let script   = generator.map(ln => `${models} ${ln}');`);
+
 // --- Create File
-let scriptGenerate = `${prefix} \n${db} \n${script.join('\n')} \n${migrate} \n${seeders}`;
+let scriptGenerate = `${prefix} \n${db} \n${script.join('\n')} \n${migrate} \n${seeders} \n${seederFile}`;
 fs.writeFileSync(`./Scripts/${fileName}`, scriptGenerate, 'utf-8');
 
 // --- Show result
