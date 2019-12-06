@@ -1,32 +1,29 @@
-let fs = require('fs');
-let xlsx = require('node-xlsx').default;
+let fs        = require('fs');
+let xlsx      = require('node-xlsx').default;
+let settings  = require('./constants.js');
+let generator = [];
 
-let schemas = [];
-const workSheetsFromFile = xlsx.parse(`${__dirname}/Libro2.xlsx`);
-
-schemas = workSheetsFromFile.map((value) => {
+// --- Process xlsx
+const Sheet   = xlsx.parse(`${__dirname}/Libro2.xlsx`);
+let schemas   = Sheet.map((value) => {
     let header = value.data.shift();
     return {
-        model: value.name,
+        model     : value.name,
         attributes: header,
-        values: value.data[0]
+        values    : value.data[0]
     };
 });
-
-let generator = [];
-generator = schemas.map((value, index) => {
+generator     = schemas.map((value) => {
     const getType = (attr) => {
         let change = {
             regx: '',
             type: ''
         };
 
-        if(attr.indexOf('(Int)') >-1){
+        if (attr.indexOf('(Int)') > -1) {
             change.regx = new RegExp(/ \(Int\)/g);
             change.type = ':number';
-        }
-
-        else if(attr.indexOf('(Str)'>-1)){
+        } else if (attr.indexOf('(Str)' > -1)) {
             change.regx = new RegExp(/ \(Str\)/g);
             change.type = ':string'
         }
@@ -34,13 +31,24 @@ generator = schemas.map((value, index) => {
         const {regx, type} = change;
         return `${attr.replace(regx, type)}`;
     };
-    generator = `--name ${value.model}`;
-    generator += ` --attributes ${value.attributes.map(attr => getType(attr) )}`
+    generator     = `--name ${value.model}`;
+    generator    += ` --attributes ${value.attributes.map(attr => getType(attr))}`;
     return generator;
 });
 
-// add properties
-let script  = generator.map(ln =>`exec('npx sequelize-cli model:generate  --models-path ./models/db.system  --migrations-path ./migrations/db.system ${ln}');`);
-fs.writeFileSync('./Scripts/db.js', 'const { exec } = require(\'child_process\');\n'+script.join('\n'), 'utf-8');
+// --- build script
+let {name, action, env, pathModel, pathMigration, pathConfig} = settings;
 
-console.log(generator);
+let fileName = `install.db.${name}.js`;
+let prefix   = 'const { exec } = require(\'child_process\');';
+let db       = `exec('npx sequelize-cli ${pathConfig} ${action('db')}');`;
+let models   = `exec('npx sequelize-cli ${action('model')} ${pathModel}  ${pathMigration} ${pathConfig} `;
+let migrate  = `exec('npx sequelize-cli ${pathConfig} ${env('dev')} ${pathMigration} ${action('migrate')}');`;
+let seeders  = `exec('npx sequelize-cli ${pathConfig} ${env('dev')}  ${action('seed')}');`;
+let script   = generator.map(ln => `${models} ${ln}');`);
+// --- Create File
+let scriptGenerate = `${prefix} \n${db} \n${script.join('\n')} \n${migrate} \n${seeders}`;
+fs.writeFileSync(`./Scripts/${fileName}`, scriptGenerate, 'utf-8');
+
+// --- Show result
+console.log(scriptGenerate);
